@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2100 900" width="100%" height="100%">
+  <defs>
+    <!-- Clip path matching the new zoomed pauldron curve -->
+    <clipPath id="pauldron-clip">
+      <path d="M -50 550 C 650 380, 1450 380, 2150 550 L 2150 -100 L -50 -100 Z" />
+    </clipPath>
+  </defs>
+
+  <!-- Solid Dark Background (Acts as the absolute base layer) -->
+  <rect width="2100" height="900" fill="#2c2f35" />
+
+  <!-- Outer Arms (Stretching far past the edges to ensure no gaps) -->
+  <path d="M -100 500 L -100 950 L 550 950 L 700 500 Z" fill="#2c2f35" />
+  <path d="M 2200 500 L 2200 950 L 1550 950 L 1400 500 Z" fill="#2c2f35" />
+
+  <!-- Left Arm Ribbing -->
+  <g stroke="#16171a" stroke-width="26" stroke-linecap="square">
+    <line x1="60" y1="500" x2="-40" y2="950" />
+    <line x1="220" y1="500" x2="120" y2="950" />
+    <line x1="380" y1="500" x2="280" y2="950" />
+    <line x1="540" y1="500" x2="440" y2="950" />
+  </g>
+
+  <!-- Right Arm Ribbing -->
+  <g stroke="#16171a" stroke-width="26" stroke-linecap="square">
+    <line x1="1560" y1="500" x2="1660" y2="950" />
+    <line x1="1720" y1="500" x2="1820" y2="950" />
+    <line x1="1880" y1="500" x2="1980" y2="950" />
+    <line x1="2040" y1="500" x2="2140" y2="950" />
+  </g>
+
+  <!-- Inner Cape / Tabards -->
+  <rect x="540" y="300" width="220" height="700" fill="#16171a" />
+  <rect x="1340" y="300" width="220" height="700" fill="#16171a" />
+
+  <!-- Center Tunic -->
+  <rect x="750" y="300" width="600" height="700" fill="#222428" />
+
+  <!-- Chest Control Box -->
+  <!-- Centered at X=1050, scaled up to match the zoom -->
+  <rect x="870" y="460" width="360" height="360" fill="#0c0d0f" stroke="#c8cbce" stroke-width="16" />
+  
+  <!-- Chest Box: Top Silver Pill -->
+  <rect x="910" y="505" width="90" height="40" rx="20" fill="#8b8e94" />
+  
+  <!-- Chest Box: Red Buttons -->
+  <rect x="1060" y="505" width="32" height="45" rx="6" fill="#eb3f42" stroke="#8b8e94" stroke-width="3" />
+  <rect x="1115" y="505" width="32" height="45" rx="6" fill="#eb3f42" stroke="#8b8e94" stroke-width="3" />
+  
+  <!-- Chest Box: 3x4 Grid -->
+  <!-- Row 1 -->
+  <circle cx="965" cy="600" r="18" fill="#e8eaed" />
+  <circle cx="1050" cy="600" r="18" fill="#4a4c52" />
+  <circle cx="1135" cy="600" r="18" fill="#4a4c52" />
+  <!-- Row 2 -->
+  <circle cx="965" cy="660" r="18" fill="#e8eaed" />
+  <circle cx="1050" cy="660" r="18" fill="#4a4c52" />
+  <circle cx="1135" cy="660" r="18" fill="#4a4c52" />
+  <!-- Row 3 -->
+  <circle cx="965" cy="720" r="18" fill="#e8eaed" />
+  <circle cx="1050" cy="720" r="18" fill="#4a4c52" />
+  <circle cx="1135" cy="720" r="18" fill="#4a4c52" />
+  <!-- Row 4 -->
+  <circle cx="965" cy="780" r="18" fill="#e8eaed" />
+  <circle cx="1050" cy="780" r="18" fill="#4a4c52" />
+  <circle cx="1135" cy="780" r="18" fill="#4a4c52" />
+
+  <!-- Utility Belt Base (Anchoring the bottom edge) -->
+  <rect x="650" y="820" width="800" height="150" fill="#16171a" />
+
+  <!-- Belt: Left Side Pouches & Hardware -->
+  <rect x="740" y="840" width="35" height="120" rx="17" fill="#c8cbce" />
+  <rect x="810" y="840" width="130" height="120" rx="5" fill="#121315" stroke="#4a4c52" stroke-width="5" />
+  <circle cx="845" cy="880" r="16" fill="#c8cbce" />
+
+  <!-- Belt: Right Side Pouches & Hardware -->
+  <rect x="1325" y="840" width="35" height="120" rx="17" fill="#c8cbce" />
+  <rect x="1160" y="840" width="130" height="120" rx="5" fill="#121315" stroke="#4a4c52" stroke-width="5" />
+  <circle cx="1255" cy="880" r="16" fill="#c8cbce" />
+
+  <!-- Belt: Center Buckle -->
+  <rect x="965" y="810" width="170" height="150" fill="#222428" stroke="#c8cbce" stroke-width="12" />
+  <ellipse cx="1050" cy="880" rx="40" ry="30" fill="#c8cbce" />
+
+  <!-- Shoulder Pauldron Layer -->
+  <g clip-path="url(#pauldron-clip)">
+    <!-- Main Silver Base -->
+    <rect x="-100" y="-150" width="2300" height="750" fill="#c8cbce" />
+    
+    <!-- Radiating Black Stripes -->
+    <polygon points="1050,-500 930,600 1170,600" fill="#16171a" />
+    <polygon points="1050,-500 600,600 820,600" fill="#16171a" />
+    <polygon points="1050,-500 200,600 450,600" fill="#16171a" />
+    <polygon points="1050,-500 -200,600 50,600" fill="#16171a" />
+    
+    <polygon points="1050,-500 1280,600 1500,600" fill="#16171a" />
+    <polygon points="1050,-500 1650,600 1900,600" fill="#16171a" />
+    <polygon points="1050,-500 2050,600 2300,600" fill="#16171a" />
+  </g>
+  
+  <!-- Pauldron Bottom Border Stroke -->
+  <path d="M -50 550 C 650 380, 1450 380, 2150 550" fill="none" stroke="#16171a" stroke-width="45" stroke-linecap="round" />
+
+  <!-- Helmet Dome (Peeking in from the top edge) -->
+  <path d="M 300 -100 C 550 250, 1550 250, 1800 -100 Z" fill="#16171a" />
+  
+  <!-- Helmet Neck/Collar Core -->
+  <path d="M 850 -100 L 930 150 L 1170 150 L 1250 -100 Z" fill="#222428" />
+  
+  <!-- Helmet Mouth Triangle -->
+  <polygon points="970,-100 1050,110 1130,-100" fill="#0c0d0f" />
+  
+  <!-- Helmet Silver Tusks/Vents -->
+  <circle cx="1010" cy="80" r="12" fill="#8b8e94" />
+  <circle cx="1090" cy="80" r="12" fill="#8b8e94" />
+
+</svg>

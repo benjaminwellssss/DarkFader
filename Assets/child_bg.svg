@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" width="100%" height="100%">
+  <defs>
+    <!-- Soft drop shadow for overlapping fabric and belt items -->
+    <filter id="drop-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="2" dy="4" stdDeviation="4" flood-opacity="0.25" />
+    </filter>
+    
+    <!-- Heavier shadow for the main belt -->
+    <filter id="belt-shadow" x="-10%" y="-10%" width="120%" height="150%">
+      <feDropShadow dx="0" dy="6" stdDeviation="5" flood-opacity="0.4" />
+    </filter>
+  </defs>
+
+  <!-- Base Layer / Undershirt / Skin tone area -->
+  <rect width="400" height="600" fill="#d9cbb2" />
+
+  <!-- Left Tunic Wrap (Back layer) -->
+  <polygon points="-50,-50 200,-50 250,200 450,450 450,650 -50,650" fill="#f4efdf" />
+
+  <!-- Right Tunic Wrap (Overlapping front layer) -->
+  <polygon points="450,-50 150,-50 200,200 -50,450 -50,650 450,650" fill="#e8dcc3" filter="url(#drop-shadow)" />
+
+  <!-- Tunic Collar / Edge Details -->
+  <polyline points="150,-50 200,200 -50,450" fill="none" stroke="#d5c39f" stroke-width="12" />
+  <polyline points="200,-50 250,200 450,450" fill="none" stroke="#e4decb" stroke-width="12" />
+
+  <!-- Lower Tunic Creases (Subtle background texture) -->
+  <line x1="100" y1="450" x2="80" y2="650" stroke="#d5c39f" stroke-width="6" opacity="0.5" />
+  <line x1="300" y1="450" x2="320" y2="650" stroke="#d5c39f" stroke-width="6" opacity="0.5" />
+
+  <!-- Belt Shadow Element -->
+  <rect x="-10" y="375" width="420" height="70" fill="transparent" filter="url(#belt-shadow)" />
+
+  <!-- Main Leather Belt -->
+  <rect x="0" y="380" width="400" height="60" fill="#3a2212" />
+  <!-- Belt Top/Bottom Edge Stitching/Bevel -->
+  <rect x="0" y="380" width="400" height="6" fill="#29170b" />
+  <rect x="0" y="434" width="400" height="6" fill="#29170b" />
+
+  <!-- Right Side Leather Pouch -->
+  <rect x="270" y="370" width="60" height="85" rx="8" fill="#57361d" filter="url(#drop-shadow)" />
+  <rect x="270" y="370" width="60" height="40" rx="8" fill="#442a17" />
+  <!-- Pouch Snap/Button -->
+  <circle cx="300" cy="402" r="4" fill="#a08569" />
+
+  <!-- Left Side Small Leather Pouch -->
+  <rect x="-10" y="375" width="40" height="70" rx="6" fill="#57361d" filter="url(#drop-shadow)" />
+  <rect x="-10" y="375" width="40" height="30" rx="6" fill="#442a17" />
+
+  <!-- Center Belt Buckle -->
+  <polygon points="160,385 240,385 245,435 155,435" fill="#b0b0b0" filter="url(#drop-shadow)" />
+  <!-- Inner Buckle Details -->
+  <rect x="175" y="395" width="50" height="30" fill="#303030" rx="4" />
+  <circle cx="190" cy="410" r="5" fill="#d0d0d0" />
+  <circle cx="210" cy="410" r="5" fill="#d0d0d0" />
+
+  <!-- Lightsaber Hilt Hanging from Belt -->
+  <g filter="url(#drop-shadow)">
+    <!-- Saber Base -->
+    <rect x="80" y="440" width="22" height="110" fill="#cccccc" rx="3" />
+    
+    <!-- Emitter Shroud Overlay -->
+    <rect x="76" y="445" width="30" height="12" fill="#222222" rx="2" />
+    
+    <!-- Red Ignition Button -->
+    <circle cx="91" cy="468" r="4" fill="#c22525" />
+    
+    <!-- Black Hand Grips -->
+    <rect x="77" y="490" width="28" height="7" fill="#111111" />
+    <rect x="77" y="505" width="28" height="7" fill="#111111" />
+    <rect x="77" y="520" width="28" height="7" fill="#111111" />
+    <rect x="77" y="535" width="28" height="7" fill="#111111" />
+    
+    <!-- D-Ring Belt Attachment -->
+    <path d="M 85 440 L 85 425 A 5 5 0 0 1 97 425 L 97 440" fill="none" stroke="#888888" stroke-width="4" />
+  </g>
+</svg>
