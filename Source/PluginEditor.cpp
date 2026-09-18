@@ -416,7 +416,7 @@ void DarkFaderAudioProcessorEditor::paint (juce::Graphics& g)
         auto* hub = SceneManagerHub::getInstance();
         juce::String statusText = childIdVal == -1
             ? juce::String ("Not assigned to a slot")
-            : ("Assigned · Scene " + juce::String (hub->getSceneNumber (hub->activeScene.load())));
+            : ("Assigned - Scene " + juce::String (hub->getSceneNumber (hub->activeScene.load())));
 
         juce::Rectangle<float> row (14.0f, static_cast<float> (getHeight() - 34), static_cast<float> (getWidth() - 28), 24.0f);
         g.setColour (juce::Colour (0xff140f0a));
@@ -510,7 +510,7 @@ void DarkFaderAudioProcessorEditor::paint (juce::Graphics& g)
 
             int activeIdx = hub->activeScene.load();
             juce::String sceneLabel = juce::String (hub->getSceneNumber (activeIdx)).paddedLeft ('0', 2)
-                                       + juce::String (" · ") + hub->getSceneName (activeIdx).toUpperCase();
+                                       + juce::String (" - ") + hub->getSceneName (activeIdx).toUpperCase();
             g.setFont (getDarkFaderFont (12.5f));
             g.setColour (DarkFaderColours::ink);
             g.drawText (sceneLabel, inner.toNearestInt(), juce::Justification::centredLeft, true);
