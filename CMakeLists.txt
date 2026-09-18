@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(DarkFader VERSION 1.0.3)
+project(DarkFader VERSION 1.0.4)
 
 # Target Apple Silicon and Intel processors for macOS Universal Binary
 if(APPLE)
@@ -48,8 +48,6 @@ juce_add_binary_data(DarkFader_BinaryData
         Assets/knob.png
         Assets/DarkFader.svg
         Assets/Montserrat-Bold.ttf
-        Assets/child_bg.svg
-        Assets/father_bg.svg
 )
 
 target_link_libraries(DarkFader PRIVATE

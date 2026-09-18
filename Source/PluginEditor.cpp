@@ -64,7 +64,7 @@ DarkFaderAudioProcessorEditor::DarkFaderAudioProcessorEditor (DarkFaderAudioProc
     childrenRowLabel.setText("CHILDREN", juce::dontSendNotification);
     childrenRowLabel.setJustificationType(juce::Justification::centredRight);
     childrenRowLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
-    childrenRowLabel.setFont(juce::Font("Myriad Pro", 12.0f, juce::Font::bold));
+    childrenRowLabel.setFont(getDarkFaderFont(12.0f));
     addChildComponent(childrenRowLabel);
     
     // Presets
@@ -304,7 +304,7 @@ void DarkFaderAudioProcessorEditor::updateLayout()
         fadeTimeSlider.setEnabled(!locked);
         
         int numRows = (activeScenes + 4) / 5;
-        setSize(std::max(1100, std::min(activeScenes, 5) * 180 + 240), std::max(480, 144 + numRows * 150)); 
+        setSize(std::max(1100, std::min(activeScenes, 5) * 180 + 240), std::max(514, 178 + numRows * 150));
     }
     else
     {
@@ -356,56 +356,91 @@ void DarkFaderAudioProcessorEditor::updateLayout()
     resized();
 }
 
+// Curved "pauldron" panel silhouette shared by both views - the shoulder-
+// armor dip abstracted into panel geometry instead of literal costume art.
+static void drawDarkFaderPanelBackground (juce::Graphics& g, juce::Rectangle<int> bounds,
+                                           juce::Colour panelTop, juce::Colour panelBottom,
+                                           juce::Colour curveFill, juce::Colour glowTint)
+{
+    auto b = bounds.toFloat();
+    juce::ColourGradient grad (panelTop, b.getX(), b.getY(), panelBottom, b.getX(), b.getBottom(), false);
+    g.setGradientFill (grad);
+    g.fillRect (b);
+
+    float curveH = juce::jmin (110.0f, b.getHeight() * 0.22f);
+    juce::Path curve;
+    curve.startNewSubPath (b.getX(), b.getY());
+    curve.lineTo (b.getX(), curveH);
+    curve.cubicTo (b.getWidth() * 0.27f, curveH * 0.28f,
+                    b.getWidth() * 0.73f, curveH * 0.28f,
+                    b.getRight(), curveH);
+    curve.lineTo (b.getRight(), b.getY());
+    curve.closeSubPath();
+    g.setColour (curveFill);
+    g.fillPath (curve);
+    g.setColour (curveFill.brighter (0.3f).withAlpha (0.5f));
+    g.strokePath (curve, juce::PathStrokeType (1.4f));
+
+    juce::ColourGradient glow (glowTint.withAlpha (0.28f), b.getCentreX(), 0.0f,
+                                glowTint.withAlpha (0.0f), b.getCentreX(), b.getHeight() * 0.6f, true);
+    g.setGradientFill (glow);
+    g.fillRect (b);
+}
+
 void DarkFaderAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    g.fillAll(juce::Colours::black);
+    g.fillAll (juce::Colours::black);
 
     if (!audioProcessor.isFather)
     {
-        std::unique_ptr<juce::Drawable> bgImage = juce::Drawable::createFromImageData(BinaryData::child_bg_svg, BinaryData::child_bg_svgSize);
-        if (bgImage != nullptr) {
-            bgImage->drawWithin(g, getLocalBounds().toFloat(), juce::RectanglePlacement::fillDestination, 0.2f);
-        } else {
-            g.setColour(juce::Colour(0xffe6dbc8)); // fallback beige
-            g.fillRect(getLocalBounds());
-        }
-        
-        // High contrast background behind ID
-        g.setColour(juce::Colours::black.withAlpha(0.7f));
-        g.fillRoundedRectangle(10, 10, 24, 24, 4.0f);
-        
-        g.setColour(juce::Colours::white);
-        if (auto tf = juce::Typeface::createSystemTypefaceFor(BinaryData::MontserratBold_ttf, BinaryData::MontserratBold_ttfSize)) {
-            g.setFont(juce::Font(tf).withHeight(16.0f));
-        } else {
-            g.setFont(juce::Font("Myriad Pro", 16.0f, juce::Font::bold));
-        }
+        drawDarkFaderPanelBackground (g, getLocalBounds(),
+            DarkFaderColours::panelChild, juce::Colour (0xff100d09),
+            juce::Colour (0xff100d09), DarkFaderColours::childBronze);
+
+        // ID plate - rounded mono badge instead of a plain square
         int childIdVal = audioProcessor.childId;
-        juce::String badgeText = childIdVal == -1 ? juce::String("?") : juce::String(childIdVal + 1);
-        g.drawText(badgeText, 10, 10, 24, 24, juce::Justification::centred);
+        juce::String idText = childIdVal == -1 ? juce::String ("UNASSIGNED") : ("CHILD " + juce::String (childIdVal + 1));
+        g.setFont (getDarkFaderFont (11.5f));
+        int plateW = g.getCurrentFont().getStringWidth (idText) + 20;
+
+        juce::Rectangle<float> plate (10.0f, 12.0f, static_cast<float> (plateW), 22.0f);
+        g.setColour (juce::Colour (0xff100d09));
+        g.fillRoundedRectangle (plate, 6.0f);
+        g.setColour (childIdVal == -1 ? DarkFaderColours::inkFaint : DarkFaderColours::childBronze);
+        g.drawRoundedRectangle (plate, 6.0f, 1.2f);
+        g.setColour (childIdVal == -1 ? DarkFaderColours::inkFaint : DarkFaderColours::childBronze);
+        g.drawText (idText, plate.toNearestInt(), juce::Justification::centred, false);
+
+        // Bronze assignment-status row at the bottom - the "belt" motif
+        // abstracted into a real readout instead of costume leatherwork.
+        auto* hub = SceneManagerHub::getInstance();
+        juce::String statusText = childIdVal == -1
+            ? juce::String ("Not assigned to a slot")
+            : ("Assigned · Scene " + juce::String (hub->getSceneNumber (hub->activeScene.load())));
+
+        juce::Rectangle<float> row (14.0f, static_cast<float> (getHeight() - 34), static_cast<float> (getWidth() - 28), 24.0f);
+        g.setColour (juce::Colour (0xff140f0a));
+        g.fillRoundedRectangle (row, 8.0f);
+        g.setColour (DarkFaderColours::edgeChild);
+        g.drawRoundedRectangle (row, 8.0f, 1.0f);
+
+        float buckleD = 14.0f;
+        juce::Rectangle<float> buckle (row.getX() + 8.0f, row.getCentreY() - buckleD * 0.5f, buckleD, buckleD);
+        g.setColour (juce::Colours::transparentBlack);
+        g.fillEllipse (buckle);
+        g.setColour (childIdVal == -1 ? DarkFaderColours::inkFaint : DarkFaderColours::childBronze);
+        g.drawEllipse (buckle, 1.6f);
+
+        g.setFont (getDarkFaderFont (11.5f));
+        g.setColour (DarkFaderColours::inkDim);
+        g.drawText (statusText, row.withTrimmedLeft (buckleD + 16.0f).toNearestInt(), juce::Justification::centredLeft, true);
     }
     else
     {
-        std::unique_ptr<juce::Drawable> bgImage = juce::Drawable::createFromImageData(BinaryData::father_bg_svg, BinaryData::father_bg_svgSize);
-        if (bgImage != nullptr) {
-            bgImage->drawWithin(g, getLocalBounds().expanded(150, 0).toFloat(), juce::RectanglePlacement::stretchToFit, 0.25f);
-        }
-        
-        // Glassy transparent blackish gradient overlay
-        juce::ColourGradient glassyGrad(juce::Colours::black.withAlpha(0.8f), 0.0f, 0.0f, 
-                                        juce::Colours::transparentBlack, 0.0f, (float)getHeight() * 0.8f, false);
-        g.setGradientFill(glassyGrad);
-        g.fillRect(getLocalBounds());
-        
-        // East/West mask to hide SVG edges
-        juce::ColourGradient leftMask(juce::Colours::black, 0.0f, 0.0f, juce::Colours::transparentBlack, 150.0f, 0.0f, false);
-        g.setGradientFill(leftMask);
-        g.fillRect(0, 0, 150, getHeight());
-        
-        juce::ColourGradient rightMask(juce::Colours::transparentBlack, (float)getWidth() - 150.0f, 0.0f, juce::Colours::black, (float)getWidth(), 0.0f, false);
-        g.setGradientFill(rightMask);
-        g.fillRect(getWidth() - 150, 0, 150, getHeight());
-        
+        drawDarkFaderPanelBackground (g, getLocalBounds(),
+            DarkFaderColours::panelFather, juce::Colour (0xff101113),
+            juce::Colour (0xff0d0e10), DarkFaderColours::fatherRed);
+
         std::unique_ptr<juce::Drawable> svgLogo = juce::Drawable::createFromImageData(BinaryData::DarkFader_svg, BinaryData::DarkFader_svgSize);
         if (svgLogo != nullptr) {
             juce::Rectangle<float> logoBounds(0, 10, getWidth(), 60);
@@ -414,26 +449,78 @@ void DarkFaderAudioProcessorEditor::paint (juce::Graphics& g)
             svgLogo->drawWithin(g, logoBounds, juce::RectanglePlacement::centred, 1.0f);
         } else {
             // Fallback
-            juce::Font logoFont(48.0f);
-            if (auto tf = juce::Typeface::createSystemTypefaceFor(BinaryData::MontserratBold_ttf, BinaryData::MontserratBold_ttfSize)) {
-                logoFont = juce::Font(tf).withHeight(48.0f);
-            }
+            juce::Font logoFont = getDarkFaderFont (48.0f);
             juce::Path textPath;
             juce::GlyphArrangement glyphs;
             glyphs.addFittedText(logoFont, "DARKFADER", 0, 10, getWidth(), 60, juce::Justification::centred, 1);
             glyphs.createPath(textPath);
-            
-            g.setColour(juce::Colour(0xffff0000).withAlpha(0.6f));
+
+            g.setColour(DarkFaderColours::fatherRed.withAlpha(0.6f));
             g.strokePath(textPath, juce::PathStrokeType(6.0f));
             g.setColour(juce::Colours::white);
             g.fillPath(textPath);
         }
+
+        // Chest-panel-inspired status cluster - Vader's chest box abstracted
+        // into a live readout (active scene, kill/lock state) instead of a
+        // static costume prop.
+        {
+            float clusterW = 300.0f, clusterH = 32.0f;
+            juce::Rectangle<float> cluster ((static_cast<float> (getWidth()) - clusterW) * 0.5f, 74.0f, clusterW, clusterH);
+
+            g.setColour (juce::Colour (0xff0d0e10));
+            g.fillRoundedRectangle (cluster, 8.0f);
+            g.setColour (DarkFaderColours::fatherSilver);
+            g.drawRoundedRectangle (cluster, 8.0f, 1.4f);
+
+            auto inner = cluster.reduced (8.0f, 6.0f);
+
+            auto pillArea = inner.removeFromLeft (46.0f);
+            juce::Rectangle<float> pill (pillArea.getX(), pillArea.getCentreY() - 8.0f, 46.0f, 16.0f);
+            juce::ColourGradient pillGrad (juce::Colour (0xffc7cdd4), pill.getX(), pill.getY(), juce::Colour (0xff9aa1ab), pill.getX(), pill.getBottom(), false);
+            g.setGradientFill (pillGrad);
+            g.fillRoundedRectangle (pill, 8.0f);
+
+            inner.removeFromLeft (10.0f);
+
+            auto* hub = SceneManagerHub::getInstance();
+            bool killed = hub->globalKillSwitch.load();
+            bool locked = hub->isLocked.load();
+
+            auto ledArea = inner.removeFromLeft (34.0f);
+            float ledW = 12.0f, ledH = clusterH - 14.0f;
+            bool ledOn[2] = { killed, locked };
+            juce::Colour ledOnColour[2] = { DarkFaderColours::fatherRed, juce::Colour (0xff4fbf6a) };
+
+            for (int i = 0; i < 2; ++i)
+            {
+                juce::Rectangle<float> led (ledArea.getX() + i * (ledW + 5.0f), ledArea.getCentreY() - ledH * 0.5f, ledW, ledH);
+                juce::Colour c = ledOn[i] ? ledOnColour[i] : juce::Colour (0xff3a3d43);
+                if (ledOn[i])
+                {
+                    juce::DropShadow ledGlow (c.withAlpha (0.8f), 6, {0, 0});
+                    juce::Path lp; lp.addRoundedRectangle (led, 2.5f);
+                    ledGlow.drawForPath (g, lp);
+                }
+                g.setColour (c);
+                g.fillRoundedRectangle (led, 2.5f);
+            }
+
+            inner.removeFromLeft (10.0f);
+
+            int activeIdx = hub->activeScene.load();
+            juce::String sceneLabel = juce::String (hub->getSceneNumber (activeIdx)).paddedLeft ('0', 2)
+                                       + juce::String (" · ") + hub->getSceneName (activeIdx).toUpperCase();
+            g.setFont (getDarkFaderFont (12.5f));
+            g.setColour (DarkFaderColours::ink);
+            g.drawText (sceneLabel, inner.toNearestInt(), juce::Justification::centredLeft, true);
+        }
     }
 
     // Version Number
-    g.setColour(juce::Colours::grey.withAlpha(0.6f));
-    g.setFont(juce::Font(10.0f));
-    g.drawText("v1.0.3", getLocalBounds().reduced(4), juce::Justification::bottomRight, false);
+    g.setFont (getDarkFaderFont (10.0f));
+    g.setColour (DarkFaderColours::inkFaint);
+    g.drawText("v" + juce::String (JucePlugin_VersionString), getLocalBounds().reduced(4), juce::Justification::bottomRight, false);
 }
 
 void DarkFaderAudioProcessorEditor::resized()
@@ -455,7 +542,7 @@ void DarkFaderAudioProcessorEditor::resized()
         
         // Right Edge Column: +, -, Lock, Kill
         int rColX = bounds.getWidth() - 84;
-        int rColY = 84;
+        int rColY = 118; // shifted down to clear the chest-panel status cluster
         addSceneButton.setBounds(rColX, rColY, 60, 60);
         removeSceneButton.setBounds(rColX, rColY + 72, 60, 60);
         lockScenesButton.setBounds(rColX, rColY + 144, 60, 60);
@@ -471,7 +558,7 @@ void DarkFaderAudioProcessorEditor::resized()
         int totalSceneW = currentCols * btnW;
         int startX = (bounds.getWidth() - 108 - totalSceneW) / 2 + 84;
         
-        childrenRowLabel.setBounds(startX - 78, 96 + sceneRowH + 12, 72, 24);
+        childrenRowLabel.setBounds(startX - 78, 130 + sceneRowH + 12, 72, 24);
         
         for (int i = 0; i < activeScenes; ++i)
         {
@@ -480,7 +567,7 @@ void DarkFaderAudioProcessorEditor::resized()
                 int col = i % maxCols;
                 
                 int sceneX = startX + col * btnW + 2;
-                int sceneY = 96 + row * 150; // Increased spacing
+                int sceneY = 130 + row * 150; // shifted down to clear the chest-panel status cluster
                 
                 sceneButtons[i]->setBounds(sceneX, sceneY, btnW - 5, sceneRowH);
                 
@@ -506,6 +593,6 @@ void DarkFaderAudioProcessorEditor::resized()
         childIdSelector.setBounds(bounds.getCentreX() - 72, 60, 144, 36);
         
         gainKnob.setBounds(bounds.getCentreX() - 72, 114, 144, 144);
-        childNameLabel.setBounds(0, bounds.getBottom() - 48, bounds.getWidth(), 36);
+        childNameLabel.setBounds(0, bounds.getBottom() - 78, bounds.getWidth(), 34);
     }
 }

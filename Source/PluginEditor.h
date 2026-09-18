@@ -1,6 +1,7 @@
 #pragma once
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
+#include "DarkFaderTheme.h"
 #include "SceneButton.h"
 #include "IconButton.h"
 
@@ -9,34 +10,36 @@ class DarkFaderLookAndFeel : public juce::LookAndFeel_V4
 public:
     DarkFaderLookAndFeel()
     {
-        setColour (juce::Slider::thumbColourId, juce::Colour(0xffa8e6cf)); // Pastel Cyan
-        setColour (juce::Slider::rotarySliderFillColourId, juce::Colour(0xffa8e6cf));
-        setColour (juce::Slider::rotarySliderOutlineColourId, juce::Colour(0xff404040));
-        
-        setColour (juce::TextButton::buttonColourId, juce::Colour(0xff3d3d3d));
-        setColour (juce::TextButton::buttonOnColourId, juce::Colour(0xffa8e6cf));
-        setColour (juce::TextButton::textColourOffId, juce::Colours::white);
-        setColour (juce::TextButton::textColourOnId, juce::Colour(0xff2d2d2d));
-        
-        setColour (juce::ComboBox::backgroundColourId, juce::Colour(0xff2d2d2d));
-        setColour (juce::ComboBox::outlineColourId, juce::Colour(0xff404040));
+        setColour (juce::Slider::thumbColourId, DarkFaderColours::saberCore);
+        setColour (juce::Slider::rotarySliderFillColourId, DarkFaderColours::saberCyan);
+        setColour (juce::Slider::rotarySliderOutlineColourId, juce::Colour(0xff2a2117));
+
+        setColour (juce::TextButton::buttonColourId, DarkFaderColours::panelFather2);
+        setColour (juce::TextButton::buttonOnColourId, DarkFaderColours::fatherRed);
+        setColour (juce::TextButton::textColourOffId, DarkFaderColours::inkDim);
+        setColour (juce::TextButton::textColourOnId, juce::Colours::white);
+
+        setColour (juce::ComboBox::backgroundColourId, DarkFaderColours::panelChild2);
+        setColour (juce::ComboBox::outlineColourId, DarkFaderColours::edgeChild);
     }
-    
+
     juce::Typeface::Ptr getTypefaceForFont (const juce::Font& font) override
     {
-        return juce::Typeface::createSystemTypefaceFor(juce::Font("Myriad Pro", font.getHeight(), juce::Font::bold));
+        if (auto tf = getDarkFaderTypeface())
+            return tf;
+        return LookAndFeel_V4::getTypefaceForFont (font);
     }
-    
-    juce::Font getLabelFont (juce::Label& label) override
+
+    juce::Font getLabelFont (juce::Label&) override
     {
-        return juce::Font("Myriad Pro", 14.5f, juce::Font::bold);
+        return getDarkFaderFont (14.5f);
     }
-    
+
     void drawRotarySlider (juce::Graphics& g, int x, int y, int width, int height, float sliderPos,
                            const float rotaryStartAngle, const float rotaryEndAngle, juce::Slider& slider) override
     {
         auto bounds = juce::Rectangle<int>(x, y, width, height).toFloat().reduced(15);
-        
+
         auto radius = juce::jmin (bounds.getWidth(), bounds.getHeight()) / 2.0f;
         auto toAngle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
         auto lineW = 8.0f;
@@ -56,31 +59,31 @@ public:
             valueArc.addCentredArc (bounds.getCentreX(), bounds.getCentreY(), arcRadius, arcRadius,
                                     0.0f, rotaryStartAngle, toAngle, true);
 
-            juce::Colour glowColor = juce::Colour(0xff00bfff); // Blue lightsaber
-            
+            juce::Colour glowColor = DarkFaderColours::saberCyan; // Lightsaber - the one glowing focal control
+
             // Outer glow
-            juce::DropShadow shadow(glowColor.withAlpha(0.9f), 12, {0, 0});
+            juce::DropShadow shadow(glowColor.withAlpha(0.85f), 12, {0, 0});
             shadow.drawForPath(g, valueArc);
-            
+
             // Core
-            g.setColour (juce::Colours::white);
+            g.setColour (DarkFaderColours::saberCore);
             g.strokePath (valueArc, juce::PathStrokeType (lineW - 2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-            
+
             // Thumb
             juce::Point<float> thumbPoint (bounds.getCentreX() + arcRadius * std::cos (toAngle - juce::MathConstants<float>::halfPi),
                                            bounds.getCentreY() + arcRadius * std::sin (toAngle - juce::MathConstants<float>::halfPi));
 
             juce::Path thumbP;
             thumbP.addEllipse(juce::Rectangle<float>(14.0f, 14.0f).withCentre(thumbPoint));
-            
+
             // Thumb Glow
             shadow.drawForPath(g, thumbP);
-            
-            g.setColour (juce::Colours::white);
+
+            g.setColour (DarkFaderColours::saberCore);
             g.fillPath(thumbP);
         }
     }
-    
+
     juce::Slider::SliderLayout getSliderLayout (juce::Slider& slider) override
     {
         juce::Slider::SliderLayout layout;
@@ -113,42 +116,41 @@ public:
     void paintButton(juce::Graphics& g, bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override
     {
         auto bounds = getLocalBounds().toFloat();
-        auto* hub = SceneManagerHub::getInstance();
-        
-        juce::Colour glowColor = hub->getSceneColor(sceneIndex);
+
         juce::String text = juce::String(childId + 1);
-        g.setFont(juce::Font("Myriad Pro", bounds.getHeight() * 0.7f, juce::Font::bold));
-        
+        g.setFont (getDarkFaderFont (bounds.getHeight() * 0.62f));
+
         int currentState = getAssignmentState();
-        
-        if (currentState == 1) { // ON (Color)
-            g.setColour(glowColor.withAlpha(0.8f));
-            if (shouldDrawButtonAsDown) g.setColour(glowColor);
+
+        if (currentState == 1) { // ON - father red, branded rather than per-scene colour
+            juce::Colour c = DarkFaderColours::fatherRed;
+            g.setColour(c.withAlpha(0.8f));
+            if (shouldDrawButtonAsDown) g.setColour(c);
             g.fillRoundedRectangle(bounds, 3.0f);
-            
-            g.setColour(glowColor.brighter());
+
+            g.setColour(DarkFaderColours::fatherRedGlow);
             g.drawRoundedRectangle(bounds, 3.0f, 1.0f);
-            
+
             g.setColour(juce::Colours::white);
-        } else if (currentState == 2) { // IGNORE (Yellow)
-            juce::Colour yellowColor = juce::Colours::yellow;
-            g.setColour(yellowColor.withAlpha(0.6f));
-            if (shouldDrawButtonAsDown) g.setColour(yellowColor);
+        } else if (currentState == 2) { // IGNORE - bronze (matches the Child identity colour)
+            juce::Colour c = DarkFaderColours::childBronze;
+            g.setColour(c.withAlpha(0.65f));
+            if (shouldDrawButtonAsDown) g.setColour(c);
             g.fillRoundedRectangle(bounds, 3.0f);
-            
-            g.setColour(yellowColor.brighter());
+
+            g.setColour(c.brighter());
             g.drawRoundedRectangle(bounds, 3.0f, 1.0f);
-            
+
             g.setColour(juce::Colours::black);
-        } else { // OFF (Grey)
-            g.setColour(juce::Colour(0xff404040));
-            if (shouldDrawButtonAsHighlighted) g.setColour(juce::Colour(0xff555555));
+        } else { // OFF
+            g.setColour(DarkFaderColours::panelFather2);
+            if (shouldDrawButtonAsHighlighted) g.setColour(juce::Colour(0xff2a2d33));
             g.fillRoundedRectangle(bounds, 3.0f);
-            
+
             g.setColour(juce::Colours::black.withAlpha(0.8f));
             g.drawRoundedRectangle(bounds, 3.0f, 1.0f);
-            
-            g.setColour(juce::Colours::lightgrey);
+
+            g.setColour(DarkFaderColours::inkFaint);
         }
         g.drawText(text, bounds, juce::Justification::centred, false);
     }

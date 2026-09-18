@@ -1,6 +1,7 @@
 #pragma once
 #include <JuceHeader.h>
 #include "SceneManagerHub.h"
+#include "DarkFaderTheme.h"
 
 class ColorPickerButton : public juce::Button
 {
@@ -196,30 +197,33 @@ public:
     void paintButton(juce::Graphics& g, bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override
     {
         auto bounds = getLocalBounds().toFloat();
-        juce::Colour sceneColor = SceneManagerHub::getInstance()->getSceneColor(sceneIndex);
-        
+        // The scene's own custom colour still shows on the corner dot
+        // (colorBtn); the active-scene highlight itself is always the
+        // Father's branded red rather than an arbitrary per-scene hue.
+        juce::Colour activeColour = DarkFaderColours::fatherRed;
+
         if (getToggleState()) {
-            juce::DropShadow shadow(sceneColor.withAlpha(0.9f), 15, {0, 0});
+            juce::DropShadow shadow(activeColour.withAlpha(0.75f), 15, {0, 0});
             juce::Path p;
             p.addRoundedRectangle(bounds.reduced(2.0f), 8.0f);
             shadow.drawForPath(g, p);
         }
-        
+
         // Frosted Glass Background
-        g.setColour(sceneColor.withAlpha(getToggleState() ? 0.4f : 0.15f));
-        if (shouldDrawButtonAsDown) g.setColour(sceneColor.withAlpha(0.5f));
-        
+        g.setColour(getToggleState() ? activeColour.withAlpha(0.16f) : juce::Colours::white.withAlpha(0.05f));
+        if (shouldDrawButtonAsDown) g.setColour(activeColour.withAlpha(0.22f));
+
         g.fillRoundedRectangle(bounds, 8.0f);
-        
+
         // Specular border
-        g.setColour(sceneColor.withAlpha(0.6f));
-        g.drawRoundedRectangle(bounds, 8.0f, 1.5f);
-        
+        g.setColour(getToggleState() ? activeColour : juce::Colours::white.withAlpha(0.12f));
+        g.drawRoundedRectangle(bounds, 8.0f, getToggleState() ? 1.5f : 1.0f);
+
         if (isHoveredByDrag) {
-            g.setColour(juce::Colours::yellow);
+            g.setColour(DarkFaderColours::childBronze);
             g.drawRoundedRectangle(bounds.reduced(1.0f), 8.0f, 3.0f);
         }
-        
+
         nameLabel.setColour(juce::Label::textColourId, getToggleState() ? juce::Colours::white : juce::Colours::white.withAlpha(0.8f));
         numberLabel.setColour(juce::Label::textColourId, juce::Colours::white.withAlpha(0.4f));
     }

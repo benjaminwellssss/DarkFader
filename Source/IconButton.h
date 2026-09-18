@@ -1,5 +1,6 @@
 #pragma once
 #include <JuceHeader.h>
+#include "DarkFaderTheme.h"
 
 class IconButton : public juce::Button
 {
@@ -14,18 +15,29 @@ public:
     {
         auto bounds = getLocalBounds().toFloat();
         bool btnIsEnabled = isEnabled();
-        
+
+        bool killEngaged = (iconType == Kill && getToggleState());
+
+        // Glow when the kill switch is engaged - the one alarming state this rail has
+        if (killEngaged)
+        {
+            juce::DropShadow shadow (DarkFaderColours::fatherRed.withAlpha (0.6f), 14, {0, 0});
+            juce::Path p;
+            p.addRoundedRectangle (bounds, bounds.getHeight() * 0.2f);
+            shadow.drawForPath (g, p);
+        }
+
         // Apple Liquid Glass Frosted Background
         g.setColour(juce::Colours::white.withAlpha(0.15f));
         g.fillRoundedRectangle(bounds, bounds.getHeight() * 0.2f);
-        
-        g.setColour(juce::Colours::white.withAlpha(0.4f));
-        g.drawRoundedRectangle(bounds, bounds.getHeight() * 0.2f, 1.5f);
+
+        g.setColour(killEngaged ? DarkFaderColours::fatherRed : juce::Colours::white.withAlpha(0.4f));
+        g.drawRoundedRectangle(bounds, bounds.getHeight() * 0.2f, killEngaged ? 2.0f : 1.5f);
 
         // Icon Color
         juce::Colour iconCol = btnIsEnabled ? juce::Colours::white : juce::Colours::white.withAlpha(0.3f);
-        if (iconType == Lock) 
-            iconCol = getToggleState() ? juce::Colour(0xff32CD32) : juce::Colour(0xffff2255); // Vibrant Green/Red
+        if (iconType == Lock)
+            iconCol = getToggleState() ? juce::Colour(0xff4fbf6a) : DarkFaderColours::fatherRed; // Locked = safe green, Unlocked = father red
 
         if (shouldDrawButtonAsDown) iconCol = iconCol.brighter(0.2f);
 
@@ -116,7 +128,7 @@ public:
             p.addLineSegment(juce::Line<float>(cx - r, cy - r, cx + r, cy + r), strokeW);
             p.addLineSegment(juce::Line<float>(cx + r, cy - r, cx - r, cy + r), strokeW);
             
-            iconCol = getToggleState() ? juce::Colour(0xffff2255) : juce::Colours::indianred.withAlpha(0.6f);
+            iconCol = getToggleState() ? DarkFaderColours::fatherRedGlow : juce::Colours::indianred.withAlpha(0.6f);
             if (shouldDrawButtonAsDown) iconCol = iconCol.brighter();
             
             g.setColour(iconCol);
