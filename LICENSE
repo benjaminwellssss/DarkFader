@@ -7,4 +7,5 @@ the copyright holder.
 
 Third-party components keep their own licenses:
 - JUCE (https://juce.com), fetched at build time, under the JUCE license.
-- Montserrat font (Assets/Montserrat-Bold.ttf), SIL Open Font License 1.1.
+- Montserrat font (Assets/Montserrat-Bold.ttf), SIL Open Font License 1.1;
+  full text in Assets/Montserrat-OFL.txt.

@@ -49,7 +49,7 @@ Configure with `-DDARKFADER_DEMO_RIG=ON` to also build:
 ## Notes
 
 - Father and Children find each other through a shared in-process hub. They must run in the same plugin host process, which is the default in Logic Pro and most DAWs.
-- Built with [JUCE](https://juce.com) under its own license terms. The UI font is [Montserrat](https://fonts.google.com/specimen/Montserrat) (SIL Open Font License 1.1).
+- Built with [JUCE](https://juce.com) under its own license terms. The UI font is [Montserrat](https://fonts.google.com/specimen/Montserrat) (SIL Open Font License 1.1, see [`Assets/Montserrat-OFL.txt`](Assets/Montserrat-OFL.txt)).
 
 ## License
 
