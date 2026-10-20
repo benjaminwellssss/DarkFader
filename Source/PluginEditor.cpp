@@ -149,18 +149,21 @@ DarkFaderAudioProcessorEditor::DarkFaderAudioProcessorEditor (DarkFaderAudioProc
     sceneButtons[0]->setToggleState(true, juce::dontSendNotification);
 
     // Child UI Setup
-    gainKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-    gainKnob.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
+    gainKnob.setSliderStyle(juce::Slider::LinearVertical);
+    gainKnob.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    gainKnob.setSliderSnapsToMousePosition(false); // drag the cap, don't jump on click
     gainKnob.setRange(0.0, 1.0, 0.01);
-    gainKnob.setValue(audioProcessor.gainMultiplier.getCurrentValue(), juce::dontSendNotification);
+    gainKnob.setValue(audioProcessor.getCurrentGain(), juce::dontSendNotification);
     gainKnob.textFromValueFunction = [](double value) {
         if (value < 0.01) return juce::String("OFF");
         if (value > 0.99) return juce::String("ON");
         return juce::String(value * 100.0, 0) + "%";
     };
+    gainKnob.updateText(); // value was set before the formatter existed, so refresh the readout
     gainKnob.onValueChange = [this] {
         if (!audioProcessor.isFather && audioProcessor.childId != -1)
         {
+            audioProcessor.lastManualEditMs.store (juce::Time::getMillisecondCounter());
             auto* hub = SceneManagerHub::getInstance();
             int currentScene = hub->activeScene.load();
             hub->setTargetGain(audioProcessor.childId, currentScene, gainKnob.getValue());
@@ -179,6 +182,7 @@ DarkFaderAudioProcessorEditor::DarkFaderAudioProcessorEditor (DarkFaderAudioProc
     childIdSelector.setSelectedId(audioProcessor.childId + 1, juce::dontSendNotification);
     childIdSelector.onChange = [this] {
         audioProcessor.childId = childIdSelector.getSelectedId() - 1;
+        SceneManagerHub::getInstance()->setChildName (audioProcessor.childId, audioProcessor.customName);
         updateLayout();
     };
     addChildComponent(childIdSelector);
@@ -236,8 +240,9 @@ void DarkFaderAudioProcessorEditor::timerCallback()
     }
     else
     {
-        float currentSmoothedGain = audioProcessor.gainMultiplier.getCurrentValue();
-        if (std::abs(currentSmoothedGain - gainKnob.getValue()) > 0.001)
+        // Don't move the fader out from under the user's hand while they drag it.
+        float currentSmoothedGain = audioProcessor.getCurrentGain();
+        if (! gainKnob.isMouseButtonDown() && std::abs(currentSmoothedGain - gainKnob.getValue()) > 0.001)
         {
             gainKnob.setValue(currentSmoothedGain, juce::dontSendNotification);
         }
@@ -304,7 +309,9 @@ void DarkFaderAudioProcessorEditor::updateLayout()
         fadeTimeSlider.setEnabled(!locked);
         
         int numRows = (activeScenes + 4) / 5;
-        setSize(std::max(1100, std::min(activeScenes, 5) * 180 + 240), std::max(514, 178 + numRows * 150));
+        int gridBottom = 130 + (numRows - 1) * 150 + 78 + 7 + 62;
+        setSize(std::max(1100, std::min(activeScenes, 5) * 180 + 240),
+                std::max(514, gridBottom + 24 + faderStripHeight + 72));
     }
     else
     {
@@ -351,7 +358,7 @@ void DarkFaderAudioProcessorEditor::updateLayout()
         lockChildButton.setColour(juce::TextButton::textColourOffId, juce::Colours::black);
         lockChildButton.setColour(juce::TextButton::buttonColourId, juce::Colours::white.withAlpha(0.8f));
         
-        setSize(360, 384); // +20% size
+        setSize(360, 448);
     }
     resized();
 }
@@ -403,13 +410,29 @@ void DarkFaderAudioProcessorEditor::paint (juce::Graphics& g)
         g.setFont (getDarkFaderFont (11.5f));
         int plateW = g.getCurrentFont().getStringWidth (idText) + 20;
 
-        juce::Rectangle<float> plate (10.0f, 12.0f, static_cast<float> (plateW), 22.0f);
+        // Top-right corner: the mode/lock buttons own the top-left.
+        juce::Rectangle<float> plate (static_cast<float> (getWidth() - plateW - 12), 19.0f, static_cast<float> (plateW), 22.0f);
         g.setColour (juce::Colour (0xff100d09));
         g.fillRoundedRectangle (plate, 6.0f);
         g.setColour (childIdVal == -1 ? DarkFaderColours::inkFaint : DarkFaderColours::childBronze);
         g.drawRoundedRectangle (plate, 6.0f, 1.2f);
         g.setColour (childIdVal == -1 ? DarkFaderColours::inkFaint : DarkFaderColours::childBronze);
         g.drawText (idText, plate.toNearestInt(), juce::Justification::centred, false);
+
+        // Status lamp + caption above the fader, same lamp as the Father's strip
+        {
+            float level = (float) gainKnob.getValue();
+            juce::Rectangle<float> lamp ((float) getWidth() * 0.5f - 34.0f, 106.0f, 68.0f, 22.0f);
+            DarkFaderFader::drawLamp (g, lamp, level, childIdVal == -1 ? 0.35f : 1.0f);
+
+            auto* hubForCaption = SceneManagerHub::getInstance();
+            juce::String caption = childIdVal == -1
+                ? juce::String ("NO SCENES - FULL VOLUME")
+                : "LEVEL IN SCENE " + juce::String (hubForCaption->getSceneNumber (hubForCaption->activeScene.load())).paddedLeft ('0', 2);
+            g.setFont (getDarkFaderFont (10.0f));
+            g.setColour (DarkFaderColours::inkFaint);
+            g.drawText (caption, juce::Rectangle<int> (0, 132, getWidth(), 14), juce::Justification::centred, false);
+        }
 
         // Bronze assignment-status row at the bottom - the "belt" motif
         // abstracted into a real readout instead of costume leatherwork.
@@ -515,6 +538,8 @@ void DarkFaderAudioProcessorEditor::paint (juce::Graphics& g)
             g.setColour (DarkFaderColours::ink);
             g.drawText (sceneLabel, inner.toNearestInt(), juce::Justification::centredLeft, true);
         }
+
+        drawFaderStrip (g);
     }
 
     // Version Number
@@ -559,6 +584,10 @@ void DarkFaderAudioProcessorEditor::resized()
         int startX = (bounds.getWidth() - 108 - totalSceneW) / 2 + 84;
         
         childrenRowLabel.setBounds(startX - 78, 130 + sceneRowH + 12, 72, 24);
+
+        int numRows = (activeScenes + 4) / maxCols;
+        int gridBottom = 130 + (numRows - 1) * 150 + sceneRowH + 7 + 62;
+        faderStripArea = juce::Rectangle<int> (24, gridBottom + 24, bounds.getWidth() - 96 - 24, faderStripHeight);
         
         for (int i = 0; i < activeScenes; ++i)
         {
@@ -592,7 +621,80 @@ void DarkFaderAudioProcessorEditor::resized()
         
         childIdSelector.setBounds(bounds.getCentreX() - 72, 60, 144, 36);
         
-        gainKnob.setBounds(bounds.getCentreX() - 72, 114, 144, 144);
-        childNameLabel.setBounds(0, bounds.getBottom() - 78, bounds.getWidth(), 34);
+        gainKnob.setBounds(bounds.getCentreX() - 60, 156, 120, 206);
+        childNameLabel.setBounds(0, 368, bounds.getWidth(), 34);
+    }
+}
+
+// One fader per Child, drawn with the same fader and lamp as the Child view.
+// Children that aren't reporting audio (not loaded, or a spare slot) are
+// drawn dimmed at their scene target instead.
+void DarkFaderAudioProcessorEditor::drawFaderStrip (juce::Graphics& g)
+{
+    if (faderStripArea.isEmpty())
+        return;
+
+    auto* hub = SceneManagerHub::getInstance();
+    auto strip = faderStripArea.toFloat();
+
+    g.setColour (juce::Colour (0xff101113));
+    g.fillRoundedRectangle (strip, 10.0f);
+    g.setColour (DarkFaderColours::edgeFather);
+    g.drawRoundedRectangle (strip, 10.0f, 1.0f);
+
+    g.setFont (getDarkFaderFont (10.5f));
+    g.setColour (DarkFaderColours::inkFaint);
+    g.drawText ("LIVE LEVELS", strip.reduced (14.0f, 8.0f).removeFromTop (14.0f).toNearestInt(),
+                juce::Justification::centredLeft, false);
+
+    auto inner = strip.reduced (8.0f, 0.0f).withTrimmedTop (24.0f).withTrimmedBottom (8.0f);
+    float colW = inner.getWidth() / (float) MAX_CHILDREN;
+    bool killed = hub->globalKillSwitch.load();
+
+    for (int s = 0; s < MAX_CHILDREN; ++s)
+    {
+        auto col = juce::Rectangle<float> (inner.getX() + s * colW, inner.getY(), colW, inner.getHeight());
+
+        bool live = hub->isChildLive (s);
+        juce::String name = hub->getChildName (s);
+        bool spare = !live && name.isEmpty();
+
+        float level = live ? hub->getChildLevel (s) : hub->getTargetGainForScene (s, hub->activeScene.load());
+        if (level < 0.0f) level = 0.0f; // "leave it" with no live data - nothing to show
+        if (killed && live) level = 1.0f;
+        level = juce::jlimit (0.0f, 1.0f, level);
+        float alpha = live ? 1.0f : 0.35f;
+
+        auto lampArea = col.removeFromTop (18.0f);
+        float lampW = juce::jmin (52.0f, colW - 10.0f);
+        DarkFaderFader::drawLamp (g, lampArea.withSizeKeepingCentre (lampW, 16.0f), level, alpha, spare);
+
+        auto badgeArea = col.removeFromBottom (18.0f);
+        auto nameArea = col.removeFromBottom (26.0f);
+        col.removeFromTop (6.0f);
+        col.removeFromBottom (4.0f);
+
+        DarkFaderFader::drawFader (g, col, level, alpha, juce::jmin (36.0f, colW * 0.7f));
+
+        // Name (track name with any trailing " - n" dropped, since the badge shows the number)
+        juce::String shownName = spare ? juce::String ("SPARE") : name;
+        if (shownName.isEmpty()) shownName = "CHILD " + juce::String (s + 1);
+        auto dash = shownName.lastIndexOf (" - ");
+        if (dash > 0 && shownName.substring (dash + 3).trim().containsOnly ("0123456789"))
+            shownName = shownName.substring (0, dash);
+        g.setFont (getDarkFaderFont (10.5f));
+        g.setColour (DarkFaderColours::fatherSilver.withMultipliedAlpha (alpha));
+        g.drawFittedText (shownName.toUpperCase(), nameArea.reduced (2.0f, 0.0f).toNearestInt(), juce::Justification::centred, 2, 0.8f);
+
+        // Bronze badge, matching the Child view's ID plate
+        juce::String badge = "CHILD " + juce::String (s + 1);
+        g.setFont (getDarkFaderFont (9.5f));
+        float bw = juce::jmin (colW - 6.0f, (float) g.getCurrentFont().getStringWidth (badge) + 14.0f);
+        juce::Rectangle<float> plate (col.getCentreX() - bw * 0.5f, badgeArea.getY() + 1.0f, bw, 16.0f);
+        g.setColour (juce::Colour (0xff100d09).withMultipliedAlpha (alpha));
+        g.fillRoundedRectangle (plate, 5.0f);
+        g.setColour (DarkFaderColours::childBronze.withMultipliedAlpha (alpha));
+        g.drawRoundedRectangle (plate, 5.0f, 1.0f);
+        g.drawText (badge, plate.toNearestInt(), juce::Justification::centred, false);
     }
 }

@@ -88,9 +88,10 @@ void DarkFaderAudioProcessor::changeProgramName (int index, const juce::String& 
 
 void DarkFaderAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    // 20ms smoothing time to prevent clicks on scene changes
-    gainMultiplier.reset (sampleRate, 0.02);
-    gainMultiplier.setCurrentAndTargetValue (1.0f);
+    juce::ignoreUnused (sampleRate, samplesPerBlock);
+    // Snap to the scene's level on the next block rather than ramping from a stale value.
+    gainRamp.snap (1.0f);
+    lastActiveScene = -1;
 }
 
 void DarkFaderAudioProcessor::releaseResources()
@@ -121,74 +122,69 @@ bool DarkFaderAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts
 
 void DarkFaderAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
+    juce::ignoreUnused (midiMessages);
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
+    const int numSamples = buffer.getNumSamples();
 
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
+        buffer.clear (i, 0, numSamples);
 
     auto* hub = SceneManagerHub::getInstance();
 
-    // Check global kill switch first
+    // Kill switch: everything passes at unity immediately.
     if (hub->globalKillSwitch.load())
     {
-        // Instantly snap to 1.0 (bypass)
-        gainMultiplier.setCurrentAndTargetValue(1.0f);
-        // Pass audio through untouched
+        gainRamp.snap (1.0f);
+        currentGainForUi.store (1.0f, std::memory_order_relaxed);
+        if (!isFather && childId != -1)
+            hub->publishChildLevel (childId, 1.0f);
         return;
     }
 
+    // The Father only manages scenes; its own audio passes through untouched.
     if (isFather)
-    {
-        // Father does not process gain staging, it just passes audio through.
         return;
-    }
-    else
+
+    if (childId != -1)
     {
-        // Child processing
-        if (childId != -1)
+        const double sr = getSampleRate() > 0.0 ? getSampleRate() : 44100.0;
+        const int currentScene = hub->activeScene.load();
+        const float targetGain = hub->getTargetGain (childId); // -1 = "leave it"
+
+        if (lastActiveScene == -1)
         {
-            int currentScene = hub->activeScene.load();
-            
-            if (lastActiveScene == -1) {
-                // Instantly snap to the target gain on the very first audio block (DAW load)
-                float initialGain = hub->getTargetGain(childId);
-                if (initialGain == -1.0f) initialGain = 1.0f;
-                gainMultiplier.setCurrentAndTargetValue(initialGain);
-                lastActiveScene = currentScene;
-            }
-            else if (currentScene != lastActiveScene) {
-                float fadeTime = hub->globalFadeTime.load();
-                // Apply the user's custom fade time ONLY when the scene actually changes
-                gainMultiplier.reset(getSampleRate(), juce::jmax(0.001f, fadeTime));
-                lastActiveScene = currentScene;
-            }
-            
-            // Poll the hub for the target gain
-            float targetGain = hub->getTargetGain(childId);
-            if (targetGain != -1.0f) {
-                gainMultiplier.setTargetValue(targetGain);
-            }
+            // First block after load: jump straight to the scene's level.
+            gainRamp.snap (targetGain < 0.0f ? 1.0f : targetGain);
+            lastActiveScene = currentScene;
         }
+        else if (targetGain >= 0.0f)
+        {
+            const bool sceneChanged = currentScene != lastActiveScene;
+            const bool userDragging = juce::Time::getMillisecondCounter() - lastManualEditMs.load() < 250;
+
+            // Scene changes (and grid edits) use the fade time; a fader being
+            // dragged by hand follows quickly. Either way the ramp starts from
+            // the current level, so nothing jumps.
+            const float seconds = (userDragging && !sceneChanged) ? 0.03f
+                                                                  : juce::jmax (0.001f, hub->globalFadeTime.load());
+            gainRamp.rampTo (targetGain, (int) std::round (seconds * sr));
+        }
+        lastActiveScene = currentScene;
     }
 
-    // Apply smoothed gain
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
+    // Apply the same gain to every channel, sample by sample.
+    for (int sample = 0; sample < numSamples; ++sample)
     {
-        auto* channelData = buffer.getWritePointer (channel);
-        
-        // Use a copy of the smoother so channels stay perfectly in sync
-        auto smootherCopy = gainMultiplier; 
-        
-        for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
-        {
-            channelData[sample] *= smootherCopy.getNextValue();
-        }
+        const float g = gainRamp.next();
+        for (int channel = 0; channel < totalNumInputChannels; ++channel)
+            buffer.getWritePointer (channel)[sample] *= g;
     }
-    
-    // Advance the original smoother
-    gainMultiplier.skip (buffer.getNumSamples());
+
+    currentGainForUi.store (gainRamp.current, std::memory_order_relaxed);
+    if (childId != -1)
+        hub->publishChildLevel (childId, gainRamp.current);
 }
 
 bool DarkFaderAudioProcessor::hasEditor() const
@@ -203,6 +199,8 @@ void DarkFaderAudioProcessor::updateTrackProperties(const TrackProperties& prope
         customName = newName;
         // The UI's label is updated every frame in PluginEditor's timerCallback, or we can just let it be drawn.
     }
+    if (!isFather && childId != -1)
+        SceneManagerHub::getInstance()->setChildName(childId, customName);
 }
 
 juce::AudioProcessorEditor* DarkFaderAudioProcessor::createEditor()
@@ -255,6 +253,9 @@ void DarkFaderAudioProcessor::setStateInformation (const void* data, int sizeInB
             childId = xmlState->getIntAttribute("childId", childId);
             customName = xmlState->getStringAttribute("customName", customName);
             customColor = juce::Colour::fromString(xmlState->getStringAttribute("customColor", customColor.toString()));
+
+            if (!isFather && childId != -1)
+                SceneManagerHub::getInstance()->setChildName(childId, customName);
             
             if (isFather) {
                 auto* hub = SceneManagerHub::getInstance();

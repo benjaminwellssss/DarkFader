@@ -54,8 +54,47 @@ public:
     std::atomic<int> childId { -1 };
 
 
-    // Smoothed gain value to prevent clicks
-    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> gainMultiplier { 1.0f };
+    // Linear gain ramp that always starts from wherever the level is right
+    // now. (juce::SmoothedValue::reset() snaps to the old target when the ramp
+    // length changes, which made busses jump if a scene changed mid-fade.)
+    struct GainRamp
+    {
+        float current = 1.0f, target = 1.0f, step = 0.0f;
+        int stepsLeft = 0;
+
+        void snap (float v) noexcept { current = target = v; step = 0.0f; stepsLeft = 0; }
+
+        void rampTo (float newTarget, int numSteps) noexcept
+        {
+            if (newTarget == target)
+                return; // already there or already heading there
+            target = newTarget;
+            if (numSteps <= 1) { snap (newTarget); return; }
+            stepsLeft = numSteps;
+            step = (target - current) / (float) numSteps;
+        }
+
+        float next() noexcept
+        {
+            if (stepsLeft > 0)
+            {
+                current += step;
+                if (--stepsLeft == 0)
+                    current = target;
+            }
+            return current;
+        }
+    };
+
+    GainRamp gainRamp;
+
+    // Level for the UI, written once per audio block.
+    std::atomic<float> currentGainForUi { 1.0f };
+    float getCurrentGain() const noexcept { return currentGainForUi.load (std::memory_order_relaxed); }
+
+    // Set by the Child view while the user drags its fader, so the audio
+    // follows the hand quickly instead of using the slow scene fade time.
+    std::atomic<juce::uint32> lastManualEditMs { 0 };
     
     // Exposed for the editor to read/write temporarily before passing to the Hub
     // (In a full plugin we would use APVTS, but we keep it simple here)

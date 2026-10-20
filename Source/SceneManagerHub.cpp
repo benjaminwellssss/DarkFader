@@ -4,6 +4,12 @@ juce_ImplementSingleton(SceneManagerHub)
 
 SceneManagerHub::SceneManagerHub()
 {
+    for (int s = 0; s < MAX_CHILDREN; ++s)
+    {
+        childLevels[s].store(0.0f);
+        childLastSeenMs[s].store(0);
+    }
+
     for (int i = 0; i < MAX_SCENES; ++i)
     {
         sceneNames[i] = "SCENE " + juce::String(i + 1);
@@ -54,8 +60,44 @@ juce::Colour SceneManagerHub::getChildColor(int childId) const
 juce::String SceneManagerHub::getChildName(int childId) const
 {
     if (childId >= 0 && childId < MAX_CHILDREN)
+    {
+        juce::ScopedLock sl(uiLock);
         return children[childId].name;
+    }
     return "Unknown";
+}
+
+void SceneManagerHub::setChildName(int childId, const juce::String& newName)
+{
+    if (childId >= 0 && childId < MAX_CHILDREN)
+    {
+        juce::ScopedLock sl(uiLock);
+        children[childId].name = newName;
+    }
+}
+
+void SceneManagerHub::publishChildLevel(int childId, float level)
+{
+    if (childId >= 0 && childId < MAX_CHILDREN)
+    {
+        childLevels[childId].store(level, std::memory_order_relaxed);
+        childLastSeenMs[childId].store(juce::Time::getMillisecondCounter(), std::memory_order_relaxed);
+    }
+}
+
+float SceneManagerHub::getChildLevel(int childId) const
+{
+    if (childId >= 0 && childId < MAX_CHILDREN)
+        return childLevels[childId].load(std::memory_order_relaxed);
+    return 0.0f;
+}
+
+bool SceneManagerHub::isChildLive(int childId) const
+{
+    if (childId < 0 || childId >= MAX_CHILDREN)
+        return false;
+    auto lastSeen = childLastSeenMs[childId].load(std::memory_order_relaxed);
+    return lastSeen != 0 && juce::Time::getMillisecondCounter() - lastSeen < 2000;
 }
 
 

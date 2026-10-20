@@ -51,6 +51,14 @@ public:
     // Get color and name for UI
     juce::Colour getChildColor(int childId) const;
     juce::String getChildName(int childId) const;
+    void setChildName(int childId, const juce::String& newName);
+
+    // Live output level of each Child (after fades and the kill switch),
+    // published from that Child's audio thread so the Father can draw its
+    // fader strip. A Child that hasn't reported recently counts as not live.
+    void publishChildLevel(int childId, float level);
+    float getChildLevel(int childId) const;
+    bool isChildLive(int childId) const;
 
 
     // Scene Customization
@@ -68,6 +76,8 @@ public:
 
 private:
     std::array<ChildInfo, MAX_CHILDREN> children;
+    std::array<std::atomic<float>, MAX_CHILDREN> childLevels;
+    std::array<std::atomic<juce::uint32>, MAX_CHILDREN> childLastSeenMs;
     juce::String sceneNames[MAX_SCENES];
     int sceneNumbers[MAX_SCENES];
     juce::Colour sceneColors[MAX_SCENES];

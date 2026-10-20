@@ -4,6 +4,7 @@
 #include "DarkFaderTheme.h"
 #include "SceneButton.h"
 #include "IconButton.h"
+#include "FaderGraphics.h"
 
 class DarkFaderLookAndFeel : public juce::LookAndFeel_V4
 {
@@ -82,6 +83,29 @@ public:
             g.setColour (DarkFaderColours::saberCore);
             g.fillPath(thumbP);
         }
+    }
+
+    // The Child's level control is drawn as the same fader the Father's
+    // live strip uses.
+    void drawLinearSlider (juce::Graphics& g, int x, int y, int width, int height, float sliderPos,
+                           float minSliderPos, float maxSliderPos, juce::Slider::SliderStyle style, juce::Slider& slider) override
+    {
+        if (style != juce::Slider::LinearVertical)
+        {
+            LookAndFeel_V4::drawLinearSlider (g, x, y, width, height, sliderPos, minSliderPos, maxSliderPos, style, slider);
+            return;
+        }
+        float level = (float) slider.valueToProportionOfLength (slider.getValue());
+        DarkFaderFader::drawFader (g, juce::Rectangle<int> (x, y, width, height).toFloat(), level,
+                                   slider.isEnabled() ? 1.0f : 0.35f, 44.0f);
+    }
+
+    int getSliderThumbRadius (juce::Slider& slider) override
+    {
+        // Matches the cap's half-height so mouse travel lines up with the drawing.
+        if (slider.getSliderStyle() == juce::Slider::LinearVertical)
+            return (int) (DarkFaderFader::capHeight * 0.5f);
+        return LookAndFeel_V4::getSliderThumbRadius (slider);
     }
 
     juce::Slider::SliderLayout getSliderLayout (juce::Slider& slider) override
@@ -205,6 +229,12 @@ private:
     IconButton lockChildButton { IconButton::Lock };
     
     juce::Label childrenRowLabel;
+
+    // Live fader strip along the bottom of the Father view - one fader per
+    // Child showing the level it's actually outputting right now.
+    static constexpr int faderStripHeight = 190;
+    juce::Rectangle<int> faderStripArea;
+    void drawFaderStrip (juce::Graphics& g);
 
     void updateLayout();
 
